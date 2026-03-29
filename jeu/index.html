@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>ValADAM</title>
+    <script src="metro-sound-manager.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #222;
+            color: #fff;
+            overflow: hidden;
+        }
+
+        #mainWrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            height: 100vh;
+        }
+
+        #gameContainer {
+            position: relative;
+            width: 843px;
+            height: 276px;
+            overflow: hidden;
+            border: 2px solid #666;
+            background: #111;
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        #quaiCanvas { z-index: 17; }
+        #ppgCanvas { z-index: 16; transition: transform 1.8s linear; }
+        #ppdCanvas { z-index: 15; transition: transform 1.8s linear; }
+
+        #train, #porteDr, #porteGc {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            width: 620px;
+            height: auto;
+        }
+
+        #train { z-index: 10; }
+        #porteDr, #porteGc { 
+            z-index: 11;
+            transition: transform 1.8s linear;
+        }
+
+        #controls {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-top: 20px;
+            background: rgba(0,0,0,0.7);
+            padding: 10px 15px;
+            border-radius: 10px;
+        }
+
+        #speedControl {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        #speedSlider {
+            width: 14px;
+            height: 131px;
+            background: linear-gradient(to bottom, #444, #222);
+            border-radius: 7px;
+            position: relative;
+            border: 1px solid #333;
+        }
+
+        #speedHandle {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 34px;
+            height: 21px;
+            background: linear-gradient(145deg, #e8e8e8, #a8a8a8);
+            border-radius: 18px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            cursor: grab;
+            border: 2px solid #666;
+            z-index: 20;
+        }
+
+        #speedHandle:active { cursor: grabbing; }
+        #speedHandle.disabled {
+            background: linear-gradient(145deg, #aaa, #666);
+            cursor: not-allowed;
+        }
+
+        #speedDisplay {
+            font-size: 14px;
+            font-weight: bold;
+            min-width: 60px;
+            text-align: center;
+        }
+
+        .btn {
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+
+        .door-btn {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+        }
+
+        #openBtn { background: #0c0; }
+        #closeBtn { background: #c00; }
+        #fuBtn { 
+            background: #f00;
+            color: #fff;
+            padding: 8px 15px;
+            font-size: 12px;
+        }
+
+        .btn:active { transform: scale(0.95); }
+
+        #info {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.8);
+            padding: 8px 12px;
+            border-radius: 5px;
+            font-size: 14px;
+            color: #ff0;
+            font-family: monospace;
+        }
+
+        /* Mobile en paysage - dimensions fixes sans étirement */
+        @media screen and (max-width: 900px) and (orientation: landscape) {
+            body {
+                padding: 0;
+                margin: 0;
+            }
+
+            #mainWrapper {
+                flex-direction: row;
+                padding: 5px;
+                justify-content: center;
+                align-items: center;
+                gap: 8px;
+            }
+
+            /* Dimensions fixes pour éviter l'étirement */
+            #gameContainer {
+                width: 562px;
+                height: 184px;
+                border-width: 1px;
+                flex-shrink: 0; /* Empêche l'étirement */
+            }
+
+            /* Proportions train et portes ajustées */
+            #train, #porteDr, #porteGc {
+                width: 413px;
+                bottom: 13px;
+            }
+
+            #controls {
+                flex-direction: column;
+                margin-top: 0;
+                padding: 6px;
+                gap: 8px;
+            }
+
+            #speedControl {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            /* Slider VERTICAL sur mobile */
+            #speedSlider {
+                width: 12px;
+                height: 90px;
+                background: linear-gradient(to bottom, #444, #222);
+            }
+
+            #speedHandle {
+                width: 24px;
+                height: 16px;
+            }
+
+            #speedDisplay {
+                font-size: 11px;
+                min-width: 45px;
+            }
+
+            /* Boutons plus petits */
+            .door-btn {
+                width: 28px;
+                height: 28px;
+            }
+
+            #fuBtn {
+                padding: 6px 12px;
+                font-size: 11px;
+            }
+
+            #info {
+                top: 3px;
+                right: 3px;
+                padding: 4px 6px;
+                font-size: 11px;
+            }
+
+            .btn-group {
+                display: flex;
+                gap: 6px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="mainWrapper">
+        <div id="gameContainer">
+            <canvas id="tunnelCanvas" width="843" height="276"></canvas>
+            <canvas id="quaiCanvas" width="843" height="276"></canvas>
+            <canvas id="ppdCanvas" width="843" height="276"></canvas>
+            <canvas id="ppgCanvas" width="843" height="276"></canvas>
+            <img id="porteGc" src="../src/pte_gc.png" alt="Porte gauche">
+            <img id="porteDr" src="../src/pte_dr.png" alt="Porte droite">
+            <img id="train" src="../src/TRAIN.png" alt="Train">
+            <div id="info">
+                <div id="distanceDisplay">--- m</div>
+            </div>
+        </div>
+        <div id="controls">
+            <div id="speedControl">
+                <div id="speedSlider">
+                    <div id="speedHandle"></div>
+                </div>
+                <div id="speedDisplay">0 km/h</div>
+            </div>
+            <div class="btn-group">
+                <button id="openBtn" class="btn door-btn" title="Ouvrir"></button>
+                <button id="closeBtn" class="btn door-btn" title="Fermer"></button>
+            </div>
+            <button id="fuBtn" class="btn">FU</button>
+        </div>
+    </div>
+
+    <script>
+        // Configuration du jeu
+        const CONFIG = {
+            maxSpeed: 80,
+            acceleration: 0.0135,
+            deceleration: 0.9,
+            emergencyBrake: 0.2,
+            doorAnimTime: 1800,
+            scrollMultiplier: 16.5
+        };
+
+        // État du jeu
+        let state = {
+            speed: 0,
+            accel: 0,
+            scroll: 0,
+            emergency: false,
+            doorsOpen: false,
+            platformDoorsAnimating: false,
+            fuActive: false,
+            dragging: false
+        };
+
+        // Éléments DOM
+        const elements = {};
+        const images = {};
+        const preloaded = {};
+        let soundManager;
+
+        // Sons des portes (séparés du sound manager)
+        const doorSounds = {
+            ouv_prt: new Audio('../src/sound/ouv_prt.mp3'),
+            fer_prt: new Audio('../src/sound/fer_prt.mp3'),
+            buzzer: new Audio('../src/sound/buzzer.mp3')
+        };
+
+        // Fonction pour jouer les sons de portes
+        function playDoorSound(soundName) {
+            if (doorSounds[soundName]) {
+                try {
+                    doorSounds[soundName].currentTime = 0;
+                    doorSounds[soundName].play().catch(error => {
+                        console.warn(`Erreur lecture son de porte ${soundName}:`, error);
+                    });
+                    console.log(`Son de porte joué: ${soundName}`);
+                } catch (error) {
+                    console.warn(`Erreur son de porte ${soundName}:`, error);
+                }
+            }
+        }
+
+        // Séquences
+        const tunnelSeq = [
+            'inje4c', '4c', 
+            ...Array(60).fill('railext'),
+            'ctsci',
+            ...Array(25).fill('railext'),
+            ...Array(2).fill('pont'),
+            ...Array(12).fill('avt_triolo'),
+            ...Array(2).fill('pont'),
+            ...Array(4).fill('avt_triolo'),
+            'triolo',
+            ...Array(2).fill('sortie_triolo'),
+            ...Array(20).fill('rail_tranchee'),
+            ...Array(2).fill('pont'),
+            ...Array(17).fill('rail_tranchee'),
+            ...Array(15).fill('pont'),
+            ...Array(2).fill('pont_autoroute1'),
+            'pont_autoroute2',
+            ...Array(2).fill('entree_tunnel'),
+            ...Array(17).fill('tunnel_classic'),
+            'hoteldeville',
+            ...Array(45).fill('tunnel_classic'),
+            'pontdebois',
+            ...Array(5).fill('tunnel_classic')
+        ];
+
+        const quaiSeq = tunnelSeq.map((t, i) => {
+            // Vérifier les stations avec quais
+            if (t === '4c' || t === 'ctsci' || t === 'triolo' || t === 'hoteldeville' || t === 'pontdebois') {
+                return 'quai';
+            }
+            return null;
+        });
+
+        let totalWidth = 0;
+        let widths = [];
+        let stations = [];
+
+        // Initialisation
+        function init() {
+            getElements();
+            soundManager = new MetroSoundManager();
+            loadImages();
+            setupControls();
+        }
+
+        function getElements() {
+            const ids = ['tunnelCanvas', 'quaiCanvas', 'ppgCanvas', 'ppdCanvas', 
+                        'speedSlider', 'speedHandle', 'speedDisplay', 'distanceDisplay',
+                        'openBtn', 'closeBtn', 'fuBtn', 'train', 'porteDr', 'porteGc'];
+            ids.forEach(id => elements[id] = document.getElementById(id));
+            
+            // Contextes canvas
+            elements.tunnelCtx = elements.tunnelCanvas.getContext('2d');
+            elements.quaiCtx = elements.quaiCanvas.getContext('2d');
+            elements.ppgCtx = elements.ppgCanvas.getContext('2d');
+            elements.ppdCtx = elements.ppdCanvas.getContext('2d');
+        }
+
+        function loadImages() {
+            const toLoad = [
+                ...['inje4c', '4c', 'railext', 'ctsci', 'pont', 'avt_triolo', 
+                    'triolo', 'sortie_triolo', 'rail_tranchee', 'pont_autoroute1', 
+                    'pont_autoroute2', 'entree_tunnel', 'hoteldeville', 'pontdebois']
+                    .map(n => ({ name: n, src: `../src/stations/${n}.png` })),
+                { name: 'tunnel_classic', src: '../src/tunnel_classic.png' },
+                { name: 'quai', src: '../src/quai.png' },
+                { name: 'ppg', src: '../src/ppg.png' },
+                { name: 'ppd', src: '../src/ppd.png' }
+            ];
+
+            let loaded = 0;
+            toLoad.forEach(({ name, src }) => {
+                const img = new Image();
+                img.onload = () => {
+                    images[name] = img;
+                    preloadCanvas(name, img);
+                    if (++loaded === toLoad.length) {
+                        calculateDimensions();
+                        gameLoop();
+                    }
+                };
+                img.src = src;
+            });
+        }
+
+        function preloadCanvas(name, img) {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            if (!['quai', 'ppg', 'ppd'].includes(name)) {
+                const scale = 276 / img.height;
+                canvas.width = img.width * scale;
+                canvas.height = 276;
+                ctx.imageSmoothingEnabled = false;
+                ctx.drawImage(img, 0, 0, canvas.width, 276);
+            } else {
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+            }
+            
+            preloaded[name] = canvas;
+        }
+
+        function calculateDimensions() {
+            let pos = 0;
+            for (let i = 0; i < tunnelSeq.length; i++) {
+                const img = images[tunnelSeq[i]];
+                const scale = 276 / img.height;
+                const w = img.width * scale;
+                widths[i] = w;
+                if (quaiSeq[i] === 'quai') {
+                    stations.push(pos + w / 2);
+                }
+                pos += w;
+            }
+            totalWidth = pos;
+        }
+
+        function setupControls() {
+            // Mobile ou desktop
+            const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+            const evStart = isMobile ? 'touchstart' : 'mousedown';
+            const evMove = isMobile ? 'touchmove' : 'mousemove';
+            const evEnd = isMobile ? 'touchend' : 'mouseup';
+
+            // Slider de vitesse
+            let startPos = 0, startHandle = 0;
+            
+            elements.speedHandle.addEventListener(evStart, e => {
+                if (state.fuActive) return;
+                state.dragging = true;
+                const ev = e.touches ? e.touches[0] : e;
+                // Toujours vertical maintenant
+                startPos = ev.clientY;
+                startHandle = getHandlePos();
+                e.preventDefault();
+            });
+
+            document.addEventListener(evMove, e => {
+                if (!state.dragging || state.fuActive) return;
+                const ev = e.touches ? e.touches[0] : e;
+                // Toujours vertical maintenant
+                const currentPos = ev.clientY;
+                const delta = currentPos - startPos;
+                const sliderSize = elements.speedSlider.offsetHeight;
+                let newPos = startHandle + (delta / sliderSize) * 100;
+                newPos = Math.max(0, Math.min(100, newPos));
+                setHandlePos(newPos);
+                updateAccel(newPos);
+            });
+
+            document.addEventListener(evEnd, () => {
+                if (!state.dragging) return;
+                state.dragging = false;
+                const pos = snapToGrad(getHandlePos());
+                setHandlePos(pos);
+                updateAccel(pos);
+            });
+
+            // Boutons avec sons
+            elements.openBtn.addEventListener('click', openDoors);
+            elements.closeBtn.addEventListener('click', closeDoors);
+            elements.fuBtn.addEventListener('click', emergencyStop);
+
+            // Clavier
+            document.addEventListener('keydown', e => {
+                if (e.key === 'o' || e.key === 'O') openDoors();
+                if (e.key === 'f' || e.key === 'F') closeDoors();
+                if (e.key === 'x' || e.key === 'X') emergencyStop();
+            });
+        }
+
+        function getHandlePos() {
+            // Toujours vertical maintenant
+            return parseFloat(elements.speedHandle.style.top || 50);
+        }
+
+        function setHandlePos(pos) {
+            // Toujours vertical maintenant
+            elements.speedHandle.style.top = pos + '%';
+            elements.speedHandle.style.left = '50%';
+        }
+
+        function snapToGrad(pos) {
+            const grads = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+            return grads.reduce((prev, curr) => 
+                Math.abs(curr - pos) < Math.abs(prev - pos) ? curr : prev
+            );
+        }
+
+        function updateAccel(pos) {
+            state.accel = 5 - (pos / 10);
+            if (state.emergency) {
+                state.emergency = false;
+                elements.fuBtn.style.background = '#f00';
+            }
+        }
+
+        function openDoors() {
+            if (state.speed === 0 && !state.doorsOpen && !state.platformDoorsAnimating) {
+                // Jouer le son d'ouverture
+                playDoorSound('ouv_prt');
+                
+                // Calculer l'écart proportionnel selon la taille de l'écran
+                const isMobile = window.innerWidth <= 900;
+                const doorOffset = isMobile ? 23 : 34; // Écart réduit sur mobile pour garder les proportions
+                const platformOffset = isMobile ? 27 : 40;
+                
+                elements.porteDr.style.transform = `translateX(${doorOffset}px)`;
+                elements.porteGc.style.transform = `translateX(-${doorOffset}px)`;
+                elements.ppgCanvas.style.transform = `translateX(-${platformOffset}px)`;
+                elements.ppdCanvas.style.transform = `translateX(${platformOffset}px)`;
+                
+                state.doorsOpen = true;
+                state.platformDoorsAnimating = true;
+                setTimeout(() => state.platformDoorsAnimating = false, CONFIG.doorAnimTime);
+            }
+        }
+
+        function closeDoors() {
+            if (state.doorsOpen && !state.platformDoorsAnimating) {
+                // Jouer le buzzer immédiatement
+                playDoorSound('buzzer');
+                
+                // Attendre que le buzzer soit complètement terminé
+                doorSounds.buzzer.onended = () => {
+                    // Une fois le buzzer fini, jouer fer_prt et démarrer l'animation
+                    playDoorSound('fer_prt');
+                    
+                    // Démarrer l'animation des portes seulement maintenant
+                    elements.porteDr.style.transform = 'translateX(0)';
+                    elements.porteGc.style.transform = 'translateX(0)';
+                    elements.ppgCanvas.style.transform = 'translateX(0)';
+                    elements.ppdCanvas.style.transform = 'translateX(0)';
+                    state.doorsOpen = false;
+                    state.platformDoorsAnimating = true;
+                    setTimeout(() => state.platformDoorsAnimating = false, CONFIG.doorAnimTime);
+                    
+                    // Nettoyer l'événement
+                    doorSounds.buzzer.onended = null;
+                };
+            }
+        }
+
+        function emergencyStop() {
+            state.emergency = true;
+            state.fuActive = true;
+            state.accel = -7;
+            elements.fuBtn.style.background = '#800';
+            setHandlePos(100);
+            elements.speedHandle.classList.add('disabled');
+            soundManager.handleEmergencyBraking(state.speed);
+            
+            const check = () => {
+                if (state.speed === 0) {
+                    state.fuActive = false;
+                    elements.speedHandle.classList.remove('disabled');
+                } else {
+                    requestAnimationFrame(check);
+                }
+            };
+            check();
+        }
+
+        function updateSpeed() {
+            if (state.emergency) {
+                state.speed = Math.max(0, state.speed - CONFIG.emergencyBrake);
+                if (state.speed === 0) {
+                    state.accel = 0;
+                    state.emergency = false;
+                }
+            } else if (!state.doorsOpen && !state.fuActive) {
+                let change = state.accel * CONFIG.acceleration;
+                if (state.accel < 0) change *= CONFIG.deceleration;
+                state.speed = Math.max(0, Math.min(CONFIG.maxSpeed, state.speed + change));
+            }
+            
+            if (state.speed === 0 && state.accel !== 0 && !state.fuActive) {
+                state.accel = 0;
+            }
+            
+            soundManager.updateSpeed(state.speed, state.accel);
+            elements.speedDisplay.textContent = Math.round(state.speed) + ' km/h';
+        }
+
+        function draw() {
+            const scrollSpeed = (state.speed / CONFIG.maxSpeed) * CONFIG.scrollMultiplier;
+            state.scroll += scrollSpeed;
+            const offset = state.scroll % totalWidth;
+
+            // Clear canvases
+            elements.tunnelCtx.clearRect(0, 0, 843, 276);
+            elements.quaiCtx.clearRect(0, 0, 843, 276);
+            elements.ppdCtx.clearRect(0, 0, 843, 276);
+            elements.ppgCtx.clearRect(0, 0, 843, 276);
+
+            // Draw tunnels and stations
+            for (let cycle = -1; cycle <= 2; cycle++) {
+                let x = (cycle * totalWidth) - offset;
+                for (let i = 0; i < tunnelSeq.length; i++) {
+                    const w = widths[i];
+                    if (x + w > -1 && x < 844) {
+                        // Tunnel
+                        const tunnel = preloaded[tunnelSeq[i]];
+                        elements.tunnelCtx.drawImage(tunnel, x, 0, w, 276);
+                        
+                        // Quai
+                        if (quaiSeq[i] === 'quai') {
+                            const quai = preloaded.quai;
+                            const qh = 276 * 0.66;
+                            const qy = 276 - qh;
+                            elements.quaiCtx.drawImage(quai, 0, 0, quai.width, quai.height, x, qy, w, qh);
+                            elements.ppdCtx.drawImage(preloaded.ppd, 0, 0, preloaded.ppd.width, preloaded.ppd.height, x, qy, w, qh);
+                            elements.ppgCtx.drawImage(preloaded.ppg, 0, 0, preloaded.ppg.width, preloaded.ppg.height, x, qy, w, qh);
+                        }
+                    }
+                    x += w;
+                }
+            }
+
+            // Update distance
+            const nextStation = getNextStation();
+            elements.distanceDisplay.textContent = nextStation ? 
+                Math.round(nextStation * 0.0224) + ' m' : '--- m';
+        }
+
+        function getNextStation() {
+            const offset = state.scroll % totalWidth;
+            let min = Infinity;
+            for (let c = 0; c <= 1; c++) {
+                for (let pos of stations) {
+                    const d = (c * totalWidth + pos) - offset;
+                    if (d > 0 && d < min) min = d;
+                }
+            }
+            return min === Infinity ? null : min;
+        }
+
+        function gameLoop() {
+            updateSpeed();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Démarrer le jeu
+        init();
+    </script>
+</body>
+</html>
